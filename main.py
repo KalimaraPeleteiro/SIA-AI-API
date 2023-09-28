@@ -6,6 +6,7 @@ app = Flask("IA API")
 # CONSTANTES
 COLUNAS_ANALISE_SOLO_CULTURA = ["Nitrogênio", "Fósforo", "Potássio", "Temperatura", "Umidade", "pH", "Chuva"]
 COLUNAS_ANALISE_SOLO_FERTILIZANTE = ["Temperatura", "Umidade do Ar", "Umidade do Solo", "Nitrogênio", "Potássio", "Fósforo"]
+COLUNAS_PREVISAO_SAFRA = ["Cultura", "Ano", "Pesticidas (ton)", "Temperatura", "Chuva Anual"]
 DICIONARIO_ANALISE_SOLO_CULTURA = {
     0: 'Arroz',
     1: 'Milho',
@@ -39,11 +40,17 @@ DICIONARIO_ANALISE_SOLO_FERTILIZANTE = {
     5: 'Fertilizante Proporção 17-17-17',
     6: 'Fertilizante Proporção 10-26-26'
 }
-
-
-@app.route("/")
-def index():
-    return "Essa é a rota index. Tente outras rotas para predições de aprendizado de máquina."
+DICIONARIO_CULTURAS_PREVISAO_SAFRA = {
+    "Mandioca": 0,
+    "Milho": 1,
+    "Batata": 2,
+    "Arroz": 3,
+    "Sorgo": 4,
+    "Soja": 5,
+    "Batata Doce": 6,
+    "Trigo": 7,
+    "Inhame": 8
+}
 
 
 # Rota para a previsão de culturas (Análise do Solo)
@@ -61,9 +68,9 @@ def previsao_cultura():
         return resposta
     
     else:
-        modelo = pickle.load(open("modelos/recomendacao_cultura.sav", "rb"))
-        resultado = modelo.predict([list(dados.values())])
-        resultado = DICIONARIO_ANALISE_SOLO_CULTURA[resultado[0]]
+        modelo = pickle.load(open("modelos/recomendacao_cultura.sav", "rb")) # Importando o modelo
+        resultado = modelo.predict([list(dados.values())]) # Prevendo o resultado
+        resultado = DICIONARIO_ANALISE_SOLO_CULTURA[resultado[0]] # Transformando o resultado para algo legível
         resposta = make_response(
             jsonify(
                 {"Resposta": f"{resultado}"}),
@@ -87,15 +94,52 @@ def previsao_fertilizante():
         return resposta
     
     else:
-        modelo = pickle.load(open("modelos/recomendacao_fertilizante.sav", "rb"))
-        resultado = modelo.predict([list(dados.values())])
-        resultado = DICIONARIO_ANALISE_SOLO_FERTILIZANTE[resultado[0]]
+        modelo = pickle.load(open("modelos/recomendacao_fertilizante.sav", "rb")) # Importando o modelo
+        resultado = modelo.predict([list(dados.values())]) # Prevendo o resultado
+        resultado = DICIONARIO_ANALISE_SOLO_FERTILIZANTE[resultado[0]] # Transformando o resultado para algo legível
         resposta = make_response(
             jsonify(
                 {"Resposta": f"{resultado}"}),
             200)
         resposta.headers["Content-Type"] = "application/json"
         return resposta
+
+
+# Rota para a previsão de safra
+@app.route("/previsao/safra/", methods=["POST"])
+def previsao_safra():
+    dados = request.get_json()
+    
+    # Verificando se os parâmetros estão corretos
+    if list(dados.keys()) != COLUNAS_PREVISAO_SAFRA:
+        resposta = make_response(
+            jsonify(
+                {"Aviso!": f"As colunas enviadas não estão de acordo com o exigido. O conjunto correto é {COLUNAS_PREVISAO_SAFRA}"}),
+            400)
+        resposta.headers["Content-Type"] = "application/json"
+        return resposta
+    
+    else:
+        dados = list(dados.values())
+
+        if dados[0] not in DICIONARIO_CULTURAS_PREVISAO_SAFRA.keys(): # Se a cultura não estiver entre as disponíveis, avisar.
+            resposta = make_response(
+            jsonify(
+                {"Aviso!": f"Cultura inválida! As culturas disponíveis para a previsão de safra são {list(DICIONARIO_CULTURAS_PREVISAO_SAFRA.keys())}"}),
+            400)
+            resposta.headers["Content-Type"] = "application/json"
+            return resposta
+        
+        else: # Caso contrário, fazer a predição
+            dados[0] = DICIONARIO_CULTURAS_PREVISAO_SAFRA[dados[0]] # Transformando a string em número
+            modelo = pickle.load(open("modelos/previsao_safra.sav", "rb")) # Importando o modelo
+            resultado = modelo.predict([dados]) # Prevendo o resultado
+            resposta = make_response(
+                jsonify(
+                    {"Previsão": f"{resultado/10} Kilogramas por Hectare"}),
+                200)
+            resposta.headers["Content-Type"] = "application/json"
+            return resposta
 
 
 app.run(debug=True)
