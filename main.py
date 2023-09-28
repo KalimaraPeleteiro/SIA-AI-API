@@ -3,7 +3,9 @@ from flask import Flask, request, jsonify, make_response
 
 app = Flask("IA API")
 
-# CONSTANTES
+
+
+# ========= CONSTANTES =========
 COLUNAS_ANALISE_SOLO_CULTURA = ["Nitrogênio", "Fósforo", "Potássio", "Temperatura", "Umidade", "pH", "Chuva"]
 COLUNAS_ANALISE_SOLO_FERTILIZANTE = ["Temperatura", "Umidade do Ar", "Umidade do Solo", "Nitrogênio", "Potássio", "Fósforo"]
 COLUNAS_PREVISAO_SAFRA = ["Cultura", "Ano", "Pesticidas (ton)", "Temperatura", "Chuva Anual"]
@@ -53,30 +55,70 @@ DICIONARIO_CULTURAS_PREVISAO_SAFRA = {
 }
 
 
-# Rota para a previsão de culturas (Análise do Solo)
-@app.route("/analise/solo/cultura/", methods=["POST"])
-def previsao_cultura():
-    dados = request.get_json()
-    
-    # Verificando se os parâmetros estão corretos
-    if list(dados.keys()) != COLUNAS_ANALISE_SOLO_CULTURA:
+
+# ========= FUNÇÕES =========
+""" 
+Cada rota da API aceitará somente um conjunto específico de parâmetros para o modelo. Caso a requisição
+seja feita com parâmetros incorretos ou fora de ordem, a resposta será um erro HTTP 400. Essa função
+compara os dados JSON enviados no pedido POST com os parâmetros e verifica se o pedido é válido.
+"""
+def verificar_colunas(dados: dict, colunas: list):
+    if list(dados.keys()) != colunas:
         resposta = make_response(
             jsonify(
                 {"Aviso!": f"As colunas enviadas não estão de acordo com o exigido. O conjunto correto é {COLUNAS_ANALISE_SOLO_CULTURA}"}),
             400)
         resposta.headers["Content-Type"] = "application/json"
         return resposta
-    
     else:
-        modelo = pickle.load(open("modelos/recomendacao_cultura.sav", "rb")) # Importando o modelo
-        resultado = modelo.predict([list(dados.values())]) # Prevendo o resultado
-        resultado = DICIONARIO_ANALISE_SOLO_CULTURA[resultado[0]] # Transformando o resultado para algo legível
+        return False
+
+
+"""
+Uma vez que as colunas tenham sido verificadas, o modelo é invocado e utilizado para prever o resultado
+com base nos parâmetros. Como o resultado é numérico, um dicionário com as respostas equivalentes ao
+entregue deve ser usado para a conversão antes de envio da resposta. Essa função realiza esse processo
+por inteiro.
+"""
+def resposta_modelo(dados: dict, modelo_arquivo: str, dicionario: dict):
+    modelo = pickle.load(open(modelo_arquivo, "rb")) # Importando o modelo
+    resultado = modelo.predict([list(dados.values())]) # Prevendo o resultado
+    resultado = dicionario[resultado[0]] # Transformando o resultado para algo legível
+    resposta = make_response(
+        jsonify(
+            {"Resposta": f"{resultado}"}),
+        200)
+    resposta.headers["Content-Type"] = "application/json"
+    return resposta
+
+
+"""
+Alguns modelos tem como seus parâmetros culturas. Logo, é necessário verificar se a cultura enviada no
+POST contempla as culturas que o modelo abrange. Essa função faz isso.
+"""
+def verificar_culturas(cultura: str, dicionario: dict):
+    if cultura not in dicionario.keys():
         resposta = make_response(
-            jsonify(
-                {"Resposta": f"{resultado}"}),
-            200)
+        jsonify(
+            {"Aviso!": f"Cultura inválida! As culturas disponíveis para a previsão de safra são {list(dicionario.keys())}"}),
+        400)
         resposta.headers["Content-Type"] = "application/json"
         return resposta
+    else:
+        return False
+
+
+
+# ========= ROTAS DA API =========
+# Rota para a previsão de culturas (Análise do Solo)
+@app.route("/analise/solo/cultura/", methods=["POST"])
+def previsao_cultura():
+    dados = request.get_json()
+    
+    if not verificar_colunas(dados, COLUNAS_ANALISE_SOLO_CULTURA):
+        return resposta_modelo(dados, "modelos/recomendacao_cultura.sav", DICIONARIO_ANALISE_SOLO_CULTURA)
+    else:
+        return verificar_colunas(dados, COLUNAS_ANALISE_SOLO_CULTURA)
 
 
 # Rota para a recomendação de fertilizantes (Análise do Solo)
@@ -84,62 +126,43 @@ def previsao_cultura():
 def previsao_fertilizante():
     dados = request.get_json()
     
-    # Verificando se os parâmetros estão corretos
-    if list(dados.keys()) != COLUNAS_ANALISE_SOLO_FERTILIZANTE:
-        resposta = make_response(
-            jsonify(
-                {"Aviso!": f"As colunas enviadas não estão de acordo com o exigido. O conjunto correto é {COLUNAS_ANALISE_SOLO_FERTILIZANTE}"}),
-            400)
-        resposta.headers["Content-Type"] = "application/json"
-        return resposta
-    
+    if not verificar_colunas(dados, COLUNAS_ANALISE_SOLO_FERTILIZANTE):
+        return resposta_modelo(dados, "modelos/recomendacao_fertilizante.sav", DICIONARIO_ANALISE_SOLO_FERTILIZANTE)
     else:
-        modelo = pickle.load(open("modelos/recomendacao_fertilizante.sav", "rb")) # Importando o modelo
-        resultado = modelo.predict([list(dados.values())]) # Prevendo o resultado
-        resultado = DICIONARIO_ANALISE_SOLO_FERTILIZANTE[resultado[0]] # Transformando o resultado para algo legível
-        resposta = make_response(
-            jsonify(
-                {"Resposta": f"{resultado}"}),
-            200)
-        resposta.headers["Content-Type"] = "application/json"
-        return resposta
+        return verificar_colunas(dados, COLUNAS_ANALISE_SOLO_FERTILIZANTE)
 
 
-# Rota para a previsão de safra
+""" 
+Rota para a previsão de safra
+
+Essa rota é um pouco especial por se tratar de um caso de regressão, e não de classificação. Logo,
+ao invés de fazer uso da função resposta_modelo, a predição é feita de modo "manual".
+
+Pequena observação: o resultado do modelo é em Hectogramas por Hectare, mas o mesmo é convertido
+para Kilogramas por Hectare em prol de retorna uma resposta que possibilita melhor entendimento.
+"""
 @app.route("/previsao/safra/", methods=["POST"])
 def previsao_safra():
     dados = request.get_json()
     
-    # Verificando se os parâmetros estão corretos
-    if list(dados.keys()) != COLUNAS_PREVISAO_SAFRA:
-        resposta = make_response(
-            jsonify(
-                {"Aviso!": f"As colunas enviadas não estão de acordo com o exigido. O conjunto correto é {COLUNAS_PREVISAO_SAFRA}"}),
-            400)
-        resposta.headers["Content-Type"] = "application/json"
-        return resposta
-    
-    else:
-        dados = list(dados.values())
+    if not verificar_colunas(dados, COLUNAS_PREVISAO_SAFRA):
+        dados = list(dados.values()) # Extraindo os valores
 
-        if dados[0] not in DICIONARIO_CULTURAS_PREVISAO_SAFRA.keys(): # Se a cultura não estiver entre as disponíveis, avisar.
-            resposta = make_response(
-            jsonify(
-                {"Aviso!": f"Cultura inválida! As culturas disponíveis para a previsão de safra são {list(DICIONARIO_CULTURAS_PREVISAO_SAFRA.keys())}"}),
-            400)
-            resposta.headers["Content-Type"] = "application/json"
-            return resposta
-        
-        else: # Caso contrário, fazer a predição
+        if not verificar_culturas(dados[0], DICIONARIO_CULTURAS_PREVISAO_SAFRA):
             dados[0] = DICIONARIO_CULTURAS_PREVISAO_SAFRA[dados[0]] # Transformando a string em número
             modelo = pickle.load(open("modelos/previsao_safra.sav", "rb")) # Importando o modelo
             resultado = modelo.predict([dados]) # Prevendo o resultado
             resposta = make_response(
                 jsonify(
-                    {"Previsão": f"{resultado/10} Kilogramas por Hectare"}),
+                    {"Previsão": f"{resultado[0]/10 :.2f} Kilogramas por Hectare"}),
                 200)
             resposta.headers["Content-Type"] = "application/json"
             return resposta
+        else:
+            return verificar_culturas(dados[0], DICIONARIO_CULTURAS_PREVISAO_SAFRA)
+        
+    else:
+        return verificar_colunas(dados, COLUNAS_PREVISAO_SAFRA)
 
 
 app.run(debug=True)
