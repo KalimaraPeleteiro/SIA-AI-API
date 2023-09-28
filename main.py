@@ -7,7 +7,11 @@ app = Flask("IA API")
 
 # ========= CONSTANTES =========
 COLUNAS_ANALISE_SOLO_CULTURA = ["Nitrogênio", "Fósforo", "Potássio", "Temperatura", "Umidade", "pH", "Chuva"]
-COLUNAS_ANALISE_SOLO_FERTILIZANTE = ["Temperatura", "Umidade do Ar", "Umidade do Solo", "Nitrogênio", "Potássio", "Fósforo"]
+COLUNAS_ANALISE_SOLO_FERTILIZANTE = ["Temperatura", "Umidade do Ar", "Umidade do Solo", "Nitrogênio", 
+                                     "Potássio", "Fósforo"]
+COLUNAS_ANALISE_AGUA = ["Alumínio", "Amônia", "Arsênio", "Bário", "Cádmio", "Cloro", "Cromo",
+                        "Cobre", "Flúor", "Bactérias", "Vírus", "Chumbo", "Nitrato", "Nitrito", 
+                        "Mercúrio", "Perclorato", "Rádio", "Selênio", "Prata", "Urânio"]
 COLUNAS_PREVISAO_SAFRA = ["Cultura", "Ano", "Pesticidas (ton)", "Temperatura", "Chuva Anual"]
 DICIONARIO_ANALISE_SOLO_CULTURA = {
     0: 'Arroz',
@@ -42,6 +46,10 @@ DICIONARIO_ANALISE_SOLO_FERTILIZANTE = {
     5: 'Fertilizante Proporção 17-17-17',
     6: 'Fertilizante Proporção 10-26-26'
 }
+DICIONARIO_ANALISE_AGUA = {
+    0: "Insalubre",
+    1: "Potável"
+}
 DICIONARIO_CULTURAS_PREVISAO_SAFRA = {
     "Mandioca": 0,
     "Milho": 1,
@@ -66,7 +74,7 @@ def verificar_colunas(dados: dict, colunas: list):
     if list(dados.keys()) != colunas:
         resposta = make_response(
             jsonify(
-                {"Aviso!": f"As colunas enviadas não estão de acordo com o exigido. O conjunto correto é {COLUNAS_ANALISE_SOLO_CULTURA}"}),
+                {"Aviso!": f"As colunas enviadas não estão de acordo com o exigido. O conjunto correto é {colunas}"}),
             400)
         resposta.headers["Content-Type"] = "application/json"
         return resposta
@@ -130,6 +138,18 @@ def previsao_fertilizante():
         return resposta_modelo(dados, "modelos/recomendacao_fertilizante.sav", DICIONARIO_ANALISE_SOLO_FERTILIZANTE)
     else:
         return verificar_colunas(dados, COLUNAS_ANALISE_SOLO_FERTILIZANTE)
+
+
+# Rota para a indicação de água potável (Análise de Água)
+@app.route("/analise/agua/", methods=["POST"])
+def previsao_agua():
+    dados = request.get_json()
+    
+    if not verificar_colunas(dados, COLUNAS_ANALISE_AGUA):
+        return resposta_modelo(dados, "modelos/recomendacao_agua.sav", DICIONARIO_ANALISE_AGUA)
+    else:
+        return verificar_colunas(dados, COLUNAS_ANALISE_AGUA)
+
 
 
 """ 
