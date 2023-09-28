@@ -13,6 +13,8 @@ COLUNAS_ANALISE_AGUA = ["Alumínio", "Amônia", "Arsênio", "Bário", "Cádmio",
                         "Cobre", "Flúor", "Bactérias", "Vírus", "Chumbo", "Nitrato", "Nitrito", 
                         "Mercúrio", "Perclorato", "Rádio", "Selênio", "Prata", "Urânio"]
 COLUNAS_PREVISAO_SAFRA = ["Cultura", "Ano", "Pesticidas (ton)", "Temperatura", "Chuva Anual"]
+COLUNAS_RECOMENDACAO_IRRIGACAO = ["Cultura", "Dias Ativos (Cultura)", "Umidade do Solo",
+                                  "Temperatura", "Umidade do Ar"]
 DICIONARIO_ANALISE_SOLO_CULTURA = {
     0: 'Arroz',
     1: 'Milho',
@@ -60,6 +62,21 @@ DICIONARIO_CULTURAS_PREVISAO_SAFRA = {
     "Batata Doce": 6,
     "Trigo": 7,
     "Inhame": 8
+}
+DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO = {
+    "Cana-de-Açúcar": 0,
+    "Trigo": 1,
+    "Batata": 2,
+    "Arroz": 3,
+    "Café": 4,
+    "Amendoim": 5,
+    "Flores": 6,
+    "Milho": 7,
+    "Vagem": 8
+}
+DICIONARIO_RECOMENDACAO_IRRIGACAO = {
+    0: "Irrigação não é necessária.",
+    1: "Irrigação recomendada."
 }
 
 
@@ -124,7 +141,7 @@ def previsao_cultura():
     dados = request.get_json()
     
     if not verificar_colunas(dados, COLUNAS_ANALISE_SOLO_CULTURA):
-        return resposta_modelo(dados, "modelos/recomendacao_cultura.sav", DICIONARIO_ANALISE_SOLO_CULTURA)
+        return resposta_modelo(dados, "modelos/analise_cultura.sav", DICIONARIO_ANALISE_SOLO_CULTURA)
     else:
         return verificar_colunas(dados, COLUNAS_ANALISE_SOLO_CULTURA)
 
@@ -135,7 +152,7 @@ def previsao_fertilizante():
     dados = request.get_json()
     
     if not verificar_colunas(dados, COLUNAS_ANALISE_SOLO_FERTILIZANTE):
-        return resposta_modelo(dados, "modelos/recomendacao_fertilizante.sav", DICIONARIO_ANALISE_SOLO_FERTILIZANTE)
+        return resposta_modelo(dados, "modelos/analise_fertilizante.sav", DICIONARIO_ANALISE_SOLO_FERTILIZANTE)
     else:
         return verificar_colunas(dados, COLUNAS_ANALISE_SOLO_FERTILIZANTE)
 
@@ -146,10 +163,32 @@ def previsao_agua():
     dados = request.get_json()
     
     if not verificar_colunas(dados, COLUNAS_ANALISE_AGUA):
-        return resposta_modelo(dados, "modelos/recomendacao_agua.sav", DICIONARIO_ANALISE_AGUA)
+        return resposta_modelo(dados, "modelos/analise_agua.sav", DICIONARIO_ANALISE_AGUA)
     else:
         return verificar_colunas(dados, COLUNAS_ANALISE_AGUA)
 
+
+# Rota para a Recomendação de Irrigação
+@app.route("/recomendacao/irrigacao/", methods = ["POST"])
+def previsao_irrigacao():
+    dados = request.get_json()
+    if not verificar_colunas(dados, COLUNAS_RECOMENDACAO_IRRIGACAO):
+        dados = list(dados.values())
+        if not verificar_culturas(dados[0], DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO):
+            dados[0] = DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO[dados[0]] # Transformando a string em número
+            modelo = pickle.load(open("modelos/recomendacao_irrigacao.sav", "rb")) # Importando o modelo
+            resultado = modelo.predict([dados]) # Prevendo o resultado
+            resultado = DICIONARIO_RECOMENDACAO_IRRIGACAO[resultado[0]]
+            resposta = make_response(
+                jsonify(
+                    {"Recomendação": f"{resultado}"}),
+                200)
+            resposta.headers["Content-Type"] = "application/json"
+            return resposta
+        else:
+            return verificar_culturas(dados[0], DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO)
+    else:
+        return verificar_colunas(dados, COLUNAS_RECOMENDACAO_IRRIGACAO)
 
 
 """ 
