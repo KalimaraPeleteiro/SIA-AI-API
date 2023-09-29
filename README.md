@@ -118,6 +118,33 @@ se encaixe no formato adequado, uma mensagem de erro será retornada.
 
 <br>
 
+> **Recomendação - Pesticida**
+> <br>
+> *Caminho: /recomendacao/pesticida/*
+> <br>
+> Com base no uso de pesticidas no plantio atual, três respostas são possíveis. O uso pode ficar a descrição
+> do produtor (não é nem incentivado nem desmotivado), o uso pode ser recomendado ou considerado perigoso
+> para a vida do plantio.
+> <br>
+> <br>
+> Os usos de pesticidas disponíveis são: "Nunca Usado Anteriormente", "Usado Anteriormente" e "Usando Atualmente"
+> <br>
+> A quantidade de insetos é medida por m².
+> <br>
+> <br>
+> Exemplo de JSON
+> ```
+> {
+>   "Quantidade de Insetos": 23,
+>   "Uso de Pesticida": "Usando Atualmente",
+>   "Número de Doses Semanais": 3,
+>   "Número de Semanas de Uso": 4,
+>   "Número de Semanas sem Uso": 0
+> }
+> ```
+
+<br>
+
 > **Previsão de Safra**
 > <br>
 > *Caminho: /previsao/safra/*

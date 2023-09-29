@@ -15,6 +15,8 @@ COLUNAS_ANALISE_AGUA = ["Alumínio", "Amônia", "Arsênio", "Bário", "Cádmio",
 COLUNAS_PREVISAO_SAFRA = ["Cultura", "Ano", "Pesticidas (ton)", "Temperatura", "Chuva Anual"]
 COLUNAS_RECOMENDACAO_IRRIGACAO = ["Cultura", "Dias Ativos (Cultura)", "Umidade do Solo",
                                   "Temperatura", "Umidade do Ar"]
+COLUNAS_RECOMENDACAO_PESTICIDA = ["Quantidade de Insetos", "Uso de Pesticida", "Número de Doses Semanais",
+                                  "Número de Semanas de Uso", "Número de Semanas sem Uso"]
 DICIONARIO_ANALISE_SOLO_CULTURA = {
     0: 'Arroz',
     1: 'Milho',
@@ -74,10 +76,21 @@ DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO = {
     "Milho": 7,
     "Vagem": 8
 }
+DICIONARIO_USO_PESTICIDA = {
+    "Nunca Usado Anteriormente": 1,
+    "Usado Anteriormente": 2,
+    "Usando Atualmente": 3
+}
 DICIONARIO_RECOMENDACAO_IRRIGACAO = {
     0: "Irrigação não é necessária.",
     1: "Irrigação recomendada."
 }
+DICIONARIO_RECOMENDACAO_PESTICIDA = {
+    0: "O uso de pesticidas está a discrição do produtor.",
+    1: "O uso de pesticidas não é recomendado nessa semana.",
+    2: "O uso de pesticidas é recomendado nessa semana."
+}
+
 
 
 
@@ -118,14 +131,14 @@ def resposta_modelo(dados: dict, modelo_arquivo: str, dicionario: dict):
 
 
 """
-Alguns modelos tem como seus parâmetros culturas. Logo, é necessário verificar se a cultura enviada no
-POST contempla as culturas que o modelo abrange. Essa função faz isso.
+Alguns modelos tem como seus parâmetros strngs. Logo, é necessário verificar se a string enviada no
+POST contempla as possíveis que o modelo abrange. Essa função faz isso.
 """
-def verificar_culturas(cultura: str, dicionario: dict):
-    if cultura not in dicionario.keys():
+def verificar_valores(valor: str, dicionario: dict, parametro: str):
+    if valor not in dicionario.keys():
         resposta = make_response(
         jsonify(
-            {"Aviso!": f"Cultura inválida! As culturas disponíveis para a previsão de safra são {list(dicionario.keys())}"}),
+            {"Aviso!": f"Valor inválido! Os valores disponíveis para {parametro} são {list(dicionario.keys())}"}),
         400)
         resposta.headers["Content-Type"] = "application/json"
         return resposta
@@ -174,7 +187,7 @@ def previsao_irrigacao():
     dados = request.get_json()
     if not verificar_colunas(dados, COLUNAS_RECOMENDACAO_IRRIGACAO):
         dados = list(dados.values())
-        if not verificar_culturas(dados[0], DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO):
+        if not verificar_valores(dados[0], DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO, "culturas"):
             dados[0] = DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO[dados[0]] # Transformando a string em número
             modelo = pickle.load(open("modelos/recomendacao_irrigacao.sav", "rb")) # Importando o modelo
             resultado = modelo.predict([dados]) # Prevendo o resultado
@@ -186,9 +199,32 @@ def previsao_irrigacao():
             resposta.headers["Content-Type"] = "application/json"
             return resposta
         else:
-            return verificar_culturas(dados[0], DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO)
+            return verificar_valores(dados[0], DICIONARIO_CULTURAS_RECOMENDACAO_IRRIGACAO, "culturas")
     else:
         return verificar_colunas(dados, COLUNAS_RECOMENDACAO_IRRIGACAO)
+
+
+# Rota para a recomendação de pesticidas.
+@app.route("/recomendacao/pesticida/", methods = ["POST"])
+def previsao_pesticida():
+    dados = request.get_json()
+    if not verificar_colunas(dados, COLUNAS_RECOMENDACAO_PESTICIDA):
+        dados = list(dados.values())
+        if not verificar_valores(dados[1], DICIONARIO_USO_PESTICIDA, "uso de pesticida"):
+            dados[1] = DICIONARIO_USO_PESTICIDA[dados[1]]
+            modelo = pickle.load(open("modelos/recomendacao_pesticida.sav", "rb"))
+            resultado = modelo.predict([dados])
+            resultado = DICIONARIO_RECOMENDACAO_PESTICIDA[resultado[0]]
+            resposta = make_response(
+                jsonify(
+                    {"Recomendação": f"{resultado}"}),
+                200)
+            resposta.headers["Content-Type"] = "application/json"
+            return resposta
+        else:
+            return verificar_valores(dados[1], DICIONARIO_USO_PESTICIDA, "uso de pesticida")
+    else:
+        return verificar_colunas(dados, COLUNAS_RECOMENDACAO_PESTICIDA)
 
 
 """ 
@@ -207,7 +243,7 @@ def previsao_safra():
     if not verificar_colunas(dados, COLUNAS_PREVISAO_SAFRA):
         dados = list(dados.values()) # Extraindo os valores
 
-        if not verificar_culturas(dados[0], DICIONARIO_CULTURAS_PREVISAO_SAFRA):
+        if not verificar_valores(dados[0], DICIONARIO_CULTURAS_PREVISAO_SAFRA, "culturas"):
             dados[0] = DICIONARIO_CULTURAS_PREVISAO_SAFRA[dados[0]] # Transformando a string em número
             modelo = pickle.load(open("modelos/previsao_safra.sav", "rb")) # Importando o modelo
             resultado = modelo.predict([dados]) # Prevendo o resultado
@@ -218,7 +254,7 @@ def previsao_safra():
             resposta.headers["Content-Type"] = "application/json"
             return resposta
         else:
-            return verificar_culturas(dados[0], DICIONARIO_CULTURAS_PREVISAO_SAFRA)
+            return verificar_valores(dados[0], DICIONARIO_CULTURAS_PREVISAO_SAFRA, "culturas")
         
     else:
         return verificar_colunas(dados, COLUNAS_PREVISAO_SAFRA)
