@@ -127,7 +127,7 @@ se encaixe no formato adequado, uma mensagem de erro será retornada.
 > para a vida do plantio.
 > <br>
 > <br>
-> Os usos de pesticidas disponíveis são: "Nunca Usado Anteriormente", "Usado Anteriormente" e "Usando Atualmente"
+> Os usos de pesticidas disponíveis são: "Nunca Usado Anteriormente", "Usado Anteriormente" e "Usando Atualmente".
 > <br>
 > A quantidade de insetos é medida por m².
 > <br>
