@@ -1,6 +1,8 @@
 <h1 align="center"> SIA-AI-API </h1>
 <p align = "center">Um dos componentes do projeto da SIA. Uma API Flask com rotas POST que dão acesso aos modelos de Machine Learning desenvolvidos para usos na SIA.</p>
 
+<p align = "center">Disponível em: https://hub.docker.com/r/kalimarapeleteiro/sia-ai-api.</p>
+
 ## Rotas
 Todas as rotas aceitam somente métodos POST com um JSON associado. Os parâmetros de como o JSON deve ser formado variam para cada rota, e, caso ele não
 se encaixe no formato adequado, uma mensagem de erro será retornada.
