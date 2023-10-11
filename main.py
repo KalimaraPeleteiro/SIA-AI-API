@@ -260,4 +260,4 @@ def previsao_safra():
         return verificar_colunas(dados, COLUNAS_PREVISAO_SAFRA)
 
 
-app.run(debug=True)
+app.run(host = "0.0.0.0", debug=False)
